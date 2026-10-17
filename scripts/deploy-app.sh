@@ -131,14 +131,27 @@ SCP_OPTS=(
     -P "${PORT}"
 )
 
+# Use legacy SCP protocol if supported (prevents SFTP truncation failure on embedded targets)
+if scp -O 2>&1 | grep -q "usage: scp"; then
+    SCP_OPTS=("-O" "${SCP_OPTS[@]}")
+fi
+
 echo -e "${BOLD}Deploying AsteroidOS Package${NC}"
 echo "============================"
 echo "IPK Package : ${IPK_FILE}"
 echo "Target Host : ${SSH_USER}@${HOST}:${PORT}"
 echo ""
 
+# Pre-clean any stale files on target and vacuum journals to prevent ENOSPC
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "rm -f \"${IPK_BASENAME}\" \"/tmp/${IPK_BASENAME}\"; sudo journalctl --vacuum-time=1s 2>/dev/null || true; sudo rm -rf /var/lib/opkg/lists/* /usr/share/${IPK_BASENAME%%-*}* 2>/dev/null || true" 2>/dev/null || true
+
 log_info "Uploading package to target device..."
-scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:/tmp/${IPK_BASENAME}"
+REMOTE_PATH="${IPK_BASENAME}"
+if ! scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}"; then
+    log_warn "Upload to home failed, trying /tmp..."
+    REMOTE_PATH="/tmp/${IPK_BASENAME}"
+    scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}"
+fi
 
 log_info "Installing package with opkg..."
 OPKG_PREFIX=""

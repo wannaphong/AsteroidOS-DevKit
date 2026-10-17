@@ -1,9 +1,10 @@
 # AsteroidOS DevKit gitignore
-
+*.pyc
+__pycache__
 # Downloaded files and caches
 /downloads/
 *.sh.part
-
+*.egg-info
 # Emulator large images
 /emulator/*.bin
 /emulator/*.ext4

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name={{ title }}
+Comment={{ description }}
+Categories=Applications;
+Exec={{ app_name }}
+Icon={{ icon }}
+X-Asteroid-Center-Color={{ center_color }}
+X-Asteroid-Outer-Color={{ outer_color }}
+
