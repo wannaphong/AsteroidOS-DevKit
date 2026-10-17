@@ -1,0 +1,30 @@
+# AsteroidOS DevKit gitignore
+
+# Downloaded files and caches
+/downloads/
+*.sh.part
+
+# Emulator large images
+/emulator/*.bin
+/emulator/*.ext4
+!/emulator/.gitkeep
+
+# Installed SDK directory
+/sdk/
+env-emulator.sh
+env-arm.sh
+
+# Build directories
+build/
+build-*/
+sample-app/build*/
+*.ipk
+*.so
+*.o
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
