@@ -141,13 +141,12 @@ log_info "Uploading package to target device..."
 scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:/tmp/${IPK_BASENAME}"
 
 log_info "Installing package with opkg..."
-# If user is not root, use sudo or install as root
-if [ "${SSH_USER}" = "root" ]; then
-    ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "opkg install --force-reinstall /tmp/${IPK_BASENAME} && rm -f /tmp/${IPK_BASENAME}"
-else
-    # Try running opkg (may require sudo if permissions needed)
-    ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "opkg install --force-reinstall /tmp/${IPK_BASENAME} || sudo opkg install --force-reinstall /tmp/${IPK_BASENAME} && rm -f /tmp/${IPK_BASENAME}"
+OPKG_PREFIX=""
+if [ "${SSH_USER}" != "root" ]; then
+    OPKG_PREFIX="sudo "
 fi
+
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "${OPKG_PREFIX}opkg install --force-reinstall /tmp/${IPK_BASENAME} && rm -f /tmp/${IPK_BASENAME}"
 
 echo ""
 log_ok "Package ${IPK_BASENAME} installed successfully!"
