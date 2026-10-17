@@ -159,7 +159,7 @@ if [ "${SSH_USER}" != "root" ]; then
     OPKG_PREFIX="sudo "
 fi
 
-ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "${OPKG_PREFIX}opkg install --force-reinstall --force-overwrite --force-depends ${REMOTE_PATH} && rm -f ${REMOTE_PATH} /tmp/${IPK_BASENAME}"
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "${OPKG_PREFIX}opkg install --force-reinstall /tmp/${IPK_BASENAME} && rm -f /tmp/${IPK_BASENAME}"
 
 echo ""
 log_ok "Package ${IPK_BASENAME} installed successfully!"
