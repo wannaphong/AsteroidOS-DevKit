@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Python Counter
+Comment=Interactive counter watch app written in Python with PySide6
+Categories=Applications;
+Exec=asteroid-pycounter
+Icon=ios-pulse-outline
+X-Asteroid-Center-Color=#2c3e50
+X-Asteroid-Outer-Color=#1a252f
+

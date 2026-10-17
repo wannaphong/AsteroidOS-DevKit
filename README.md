@@ -16,6 +16,7 @@ This repository provides automated scripts, an emulator environment, Qt6 SDK set
 - [AsteroidOS Emulator](#asteroidos-emulator)
 - [Building Applications](#building-applications)
 - [Deploying Applications](#deploying-applications)
+- [Python SDK & Developing Apps in Python](#python-sdk--developing-apps-in-python)
 - [Developing with QtCreator / VS Code](#developing-with-qtcreator--vs-code)
 - [Troubleshooting & Tips](#troubleshooting--tips)
 - [References](#references)
@@ -38,6 +39,10 @@ This repository provides automated scripts, an emulator environment, Qt6 SDK set
 ```text
 ├── Makefile                   # Convenient shortcuts for common tasks
 ├── README.md                  # This documentation
+├── python-sdk/                # AsteroidOS Python SDK & CLI
+│   ├── asteroidos/            # Core library (app, packager, builder, emulator, device)
+│   ├── examples/              # Python application examples
+│   └── tests/                 # Comprehensive test suite
 ├── scripts/
 │   ├── install-prereqs.sh     # Installs required host system packages
 │   ├── setup-sdk.sh           # Downloads & installs AsteroidOS Qt6 SDK
@@ -47,7 +52,8 @@ This repository provides automated scripts, an emulator environment, Qt6 SDK set
 │   ├── build-app.sh           # Compiles apps & builds .ipk packages
 │   └── deploy-app.sh          # Deploys .ipk packages to emulator or watch
 ├── emulator/                  # Storage for bzImage-emulator.bin and rootfs
-├── sample-app/                # Official AsteroidOS sample application (asteroid-helloworld)
+├── sample-app/                # Official AsteroidOS sample application (C++/Qt6 QML)
+├── sample-python-app/         # Official AsteroidOS Python sample application (PySide6/QML)
 └── sdk/                       # Installed SDK toolchain and sysroots (gitignored)
 ```
 
@@ -258,6 +264,175 @@ Connect your watch via USB (default IP: `192.168.2.15`):
 
 # Deploy to watch on custom Wi-Fi IP:
 ./scripts/deploy-app.sh app.ipk --target watch --host 192.168.1.105
+```
+
+---
+
+## Python SDK & Developing Apps in Python
+
+The DevKit includes a complete **Python SDK** (`python-sdk/`) allowing developers to create, build, package, test, and deploy AsteroidOS applications directly using Python or the unified `asteroidos` CLI tool.
+
+> 📖 **Comprehensive Guide**: See **[python_sdk.md](python_sdk.md)** for in-depth documentation on standalone runtime packaging (AppImage-style), architecture, and target optimization.
+
+### Installation
+
+```bash
+make python-sdk-install
+# or: pip install -e ./python-sdk
+```
+
+Verify your installation:
+```bash
+asteroidos doctor
+make python-sdk-test
+```
+
+### 1. Using the `asteroidos` CLI
+
+#### Scaffold a new app:
+```bash
+# Create a native C++/Qt6 QML app:
+asteroidos new my-watch-app --title "My App" --template qml_cpp
+
+# Create a Python/PySide6 watch app:
+asteroidos new my-py-app --title "Python App" --template python
+```
+
+#### Build and package:
+```bash
+cd my-watch-app
+asteroidos build --target emulator    # Builds for QEMU (core2-32)
+# or:
+asteroidos build --target arm         # Builds for physical watch (armv7vehf-neon)
+```
+
+#### Deploy to Emulator or Physical Watch:
+```bash
+asteroidos deploy --target emulator   # Deploys to localhost:2222 via SSH/opkg
+# or:
+asteroidos deploy --target watch      # Deploys to USB watch at 192.168.2.15
+```
+
+### 2. Creating Apps Directly from Python Code
+
+You can create, customize, and compile AsteroidOS apps entirely in Python:
+
+```python
+from asteroidos import App, AppType, Target
+import asteroidos.icons as icons
+
+# 1. Define application
+app = App(
+    name="asteroid-dice",
+    title="Dice Roller",
+    version="1.0.0",
+    description="Roll dice on your AsteroidOS watch",
+    icon=icons.IOS_GAME_CONTROLLER_B_OUTLINE,
+    center_color="#e67e22",
+    outer_color="#d35400",
+    app_type=AppType.NATIVE_QML,
+)
+
+# 2. Provide custom QML interface
+app.set_main_qml("""
+import QtQuick
+import org.asteroid.controls
+
+Application {
+    id: app
+    centerColor: "#e67e22"
+    outerColor: "#d35400"
+
+    Label {
+        anchors.centerIn: parent
+        text: "🎲 Lucky Roll!"
+        font.pixelSize: 32
+    }
+}
+""")
+
+# 3. Generate project, compile with AsteroidOS SDK, and create .ipk
+app.generate_project("/tmp/asteroid-dice")
+ipk_path = app.build(target=Target.EMULATOR)
+print(f"Created: {ipk_path}")
+
+# 4. Deploy directly to emulator
+app.deploy(target=Target.EMULATOR)
+```
+
+### 3. Pure-Python Watch Applications (PySide6 & Standalone Bundling)
+
+You can write AsteroidOS apps entirely in Python with PySide6 and QML. Because stock AsteroidOS images do not include `python3` by default, the SDK supports **standalone runtime bundling (AppImage-style)**:
+
+- Automatically bundles the target Python 3 interpreter, shared libraries (`libpython3.so`, `libpyside6.so`, `libshiboken6.so`), standard library modules, and PySide6 Qt bindings from the SDK sysroot into `/usr/share/<app-name>/python/`.
+- Preserves dynamic library symlinks for minimal package size and watch flash storage.
+- Requires zero host dependencies — runs cleanly out-of-the-box on both the emulator and physical watches.
+
+```python
+from asteroidos import App, AppType, Target
+import asteroidos.icons as icons
+
+app = App(
+    name="asteroid-pytimer",
+    title="Python Timer",
+    version="1.0.0",
+    app_type=AppType.PYTHON_QML,
+)
+
+# Set custom Python script and QML UI
+app.set_main_py(...)
+app.set_main_qml(...)
+
+# Package standalone self-contained .ipk bundle for emulator:
+ipk_path = app.package(target=Target.EMULATOR, standalone=True)
+
+# Or package for physical watch:
+# ipk_path = app.package(target=Target.WATCH, standalone=True)
+```
+
+### 4. Programmatic Emulator & Device Control
+
+```python
+from asteroidos import Emulator, Device, Target
+
+# Manage QEMU emulator
+Emulator.start(daemon=True)
+Emulator.wait_ready(timeout=60)
+
+# Connect to target device
+device = Device.for_target(Target.EMULATOR)
+if device.is_reachable():
+    device.install_ipk("my-app.ipk")
+    device.screenshot("watch_screen.png")
+```
+
+### 5. Running the Example Builds
+
+The repository includes ready-to-build example applications and scripts:
+
+#### Build the Python Sample Application (`sample-python-app`):
+```bash
+# Option A: Using Makefile (packages into sample-python-app/dist/)
+make build-sample-python
+
+# Option B: Run the standalone build script
+python3 sample-python-app/build.py
+
+# Option C: Using the asteroidos CLI
+asteroidos package sample-python-app --target all
+```
+
+#### Deploy the Sample Python App:
+```bash
+make deploy-sample-python
+# or:
+asteroidos deploy sample-python-app/dist --target emulator
+```
+
+#### Run Automated Build Examples (Native C++ & Python App Builders):
+```bash
+# Runs Example 1 (Native C++/QML) & Example 2 (PySide6 Python app):
+make build-python-examples
 ```
 
 ---

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asteroidos"
+version = "0.1.0"
+description = "Python SDK and CLI for developing, building, packaging, and deploying AsteroidOS applications."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+    { name = "AsteroidOS Community" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Embedded Systems",
+]
+
+[project.scripts]
+asteroidos = "asteroidos.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["asteroidos*"]
+exclude = ["tests*", "examples*"]
+
+[tool.setuptools.package-data]
+"asteroidos" = ["templates/**/*"]
+
