@@ -254,7 +254,7 @@ if device.is_reachable():
 
     # Capture display screenshot
     device.screenshot("screenshot.png")
----
+```
 
 ## AsteroidOS QML Controls (`qml-asteroid`)
 
