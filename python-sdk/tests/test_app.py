@@ -65,6 +65,47 @@ class TestApp(unittest.TestCase):
             self.assertEqual(app2.version, "2.0.1")
             self.assertEqual(app2.metadata.center_color, "#aabbcc")
 
+    def test_pip_dependencies_in_metadata_and_app(self):
+        meta = AppMetadata(
+            name="py-numpy-app",
+            pip_dependencies=["numpy", "requests>=2.28"],
+        )
+        self.assertIn("numpy", meta.pip_dependencies)
+        self.assertIn("requests>=2.28", meta.pip_dependencies)
+
+        meta_dict = meta.to_dict()
+        self.assertIn("pip_dependencies", meta_dict)
+
+        loaded_meta = AppMetadata.from_dict(meta_dict)
+        self.assertEqual(loaded_meta.pip_dependencies, ["numpy", "requests>=2.28"])
+
+        app = App("asteroid-math-app", app_type=AppType.PYTHON_QML)
+        app.add_pip_package("numpy")
+        app.add_pip_dependency("scipy")
+        self.assertEqual(app.pip_dependencies, ["numpy", "scipy"])
+
+    def test_requirements_txt_loading_and_generation(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            proj_dir = Path(tmp_dir) / "asteroid-req-app"
+            app = App(
+                name="asteroid-req-app",
+                app_type=AppType.PYTHON_QML,
+                pip_dependencies=["markupsafe", "urllib3"],
+            )
+            app.generate_project(proj_dir)
+
+            # Check requirements.txt was written
+            req_file = proj_dir / "requirements.txt"
+            self.assertTrue(req_file.exists())
+            req_content = req_file.read_text()
+            self.assertIn("markupsafe", req_content)
+            self.assertIn("urllib3", req_content)
+
+            # Check loading loads requirements.txt
+            loaded = App.load(proj_dir)
+            self.assertIn("markupsafe", loaded.pip_dependencies)
+            self.assertIn("urllib3", loaded.pip_dependencies)
+
 
 if __name__ == "__main__":
     unittest.main()

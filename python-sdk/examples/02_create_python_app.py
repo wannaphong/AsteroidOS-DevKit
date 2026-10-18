@@ -27,6 +27,9 @@ def main():
         dependencies=["python3-core", "python3-pyside6"],
     )
 
+    # Add PyPI package dependencies (cross-compiled for target architecture)
+    # app.add_pip_package("numpy")
+
     # 2. Add custom Python backend logic
     app.set_main_py("""#!/usr/bin/env python3
 import sys

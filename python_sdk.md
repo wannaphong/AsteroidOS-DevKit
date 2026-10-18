@@ -114,6 +114,15 @@ Embedded watch storage is small (~800MB rootfs on emulator). The deployment tool
 - **Journal Log Vacuuming**: Automatically runs `journalctl --vacuum-time=1s` before file transfer to prevent out-of-disk (`ENOSPC`) errors.
 - **Package List Cleanup**: Cleans stale `/var/lib/opkg/lists/*` cache files before uploading large packages.
 
+### 5. PyPI Packages with Native Compiler Support (NumPy, etc.)
+Many modern Python wearable applications require scientific or mathematical libraries like **NumPy** or compiled speedups like **MarkupSafe**. Because PyPI usually only provides 64-bit x86_64 or desktop wheels, targeting embedded 32-bit `core2-32` or ARM smartwatches requires cross-compiling from source.
+
+The AsteroidOS Python SDK automates the entire cross-compilation pipeline:
+- **Automatic SDK Cross-Compiler Detection**: Leverages the DevKit cross toolchain (`i686-oe-linux-gcc` / `armv7...`) and OpenEmbedded target sysroot.
+- **Sysconfig Bridge**: Configures target `_sysconfigdata` and Python 3.13 headers so native C/C++ builds (using `setuptools`, `meson-python`, or `ninja`) target the smartwatch architecture rather than the host.
+- **Wheelhouse Caching**: Pre-compiles target wheels into `~/.cache/asteroidos/wheels/<arch>/` so that subsequent builds don't need to recompile NumPy from source.
+- **Seamless Declaration**: Dependencies can be declared in `asteroid.json` (`"pip_dependencies"`), in `requirements.txt`, or programmatically via `app.add_pip_package("numpy")`.
+
 ---
 
 ## 5. Usage Guide

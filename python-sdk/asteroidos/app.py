@@ -55,6 +55,7 @@ class AppMetadata:
     outer_color: str = "#421c0a"
     app_type: AppType = AppType.NATIVE_QML
     dependencies: List[str] = field(default_factory=list)
+    pip_dependencies: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         # Sanitize app name (must be valid package identifier: lowercase letters, digits, dashes)
@@ -64,6 +65,8 @@ class AppMetadata:
             # Generate title from name (e.g. asteroid-stopwatch -> Stopwatch)
             cleaned = self.name.replace("asteroid-", "").replace("-", " ")
             self.title = cleaned.title()
+        if not isinstance(self.pip_dependencies, list):
+            self.pip_dependencies = list(self.pip_dependencies)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -77,6 +80,7 @@ class AppMetadata:
             "outer_color": self.outer_color,
             "app_type": self.app_type.value if isinstance(self.app_type, AppType) else self.app_type,
             "dependencies": list(self.dependencies),
+            "pip_dependencies": list(self.pip_dependencies),
         }
 
     @classmethod
@@ -87,6 +91,7 @@ class AppMetadata:
         except ValueError:
             app_type = AppType.NATIVE_QML
 
+        pip_deps = data.get("pip_dependencies") or data.get("pip_packages") or data.get("python_dependencies") or []
         return cls(
             name=data["name"],
             title=data.get("title", ""),
@@ -98,6 +103,7 @@ class AppMetadata:
             outer_color=data.get("outer_color", "#421c0a"),
             app_type=app_type,
             dependencies=data.get("dependencies", []),
+            pip_dependencies=list(pip_deps),
         )
 
 
@@ -108,7 +114,7 @@ class App:
     Example:
         >>> from asteroidos import App, Target
         >>> app = App("asteroid-counter", title="Step Counter")
-        >>> app.set_main_qml(...)
+        >>> app.add_pip_package("numpy")
         >>> package = app.build(Target.EMULATOR)
     """
 
@@ -124,6 +130,7 @@ class App:
         outer_color: str = "#421c0a",
         app_type: Union[AppType, str] = AppType.NATIVE_QML,
         dependencies: Optional[List[str]] = None,
+        pip_dependencies: Optional[List[str]] = None,
         project_dir: Optional[Union[str, Path]] = None,
     ):
         if isinstance(app_type, str):
@@ -143,6 +150,7 @@ class App:
             outer_color=outer_color,
             app_type=app_type,
             dependencies=dependencies or [],
+            pip_dependencies=pip_dependencies or [],
         )
 
         self.project_dir = Path(project_dir) if project_dir else None
@@ -164,6 +172,26 @@ class App:
     @property
     def app_type(self) -> AppType:
         return self.metadata.app_type
+
+    @property
+    def pip_dependencies(self) -> List[str]:
+        return self.metadata.pip_dependencies
+
+    def add_pip_package(self, package: str) -> App:
+        """Adds a PyPI package dependency to be cross-compiled and bundled with the app."""
+        pkg = package.strip()
+        if pkg and pkg not in self.metadata.pip_dependencies:
+            self.metadata.pip_dependencies.append(pkg)
+        return self
+
+    def add_pip_dependency(self, package: str) -> App:
+        """Alias for add_pip_package."""
+        return self.add_pip_package(package)
+
+    def set_pip_dependencies(self, packages: List[str]) -> App:
+        """Sets the complete list of PyPI package dependencies."""
+        self.metadata.pip_dependencies = [p.strip() for p in packages if p.strip()]
+        return self
 
     def set_main_qml(self, content: str) -> App:
         """Sets the main QML user interface content."""
@@ -235,6 +263,11 @@ class App:
             target_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_path, target_path)
 
+        # 3.5 Write requirements.txt if pip dependencies exist
+        if self.metadata.pip_dependencies and "requirements.txt" not in self._custom_files:
+            req_file = dest / "requirements.txt"
+            req_file.write_text("\n".join(self.metadata.pip_dependencies) + "\n", encoding="utf-8")
+
         # 4. Save metadata manifest
         manifest_file = dest / "asteroid.json"
         manifest_file.write_text(json.dumps(self.metadata.to_dict(), indent=2), encoding="utf-8")
@@ -248,6 +281,8 @@ class App:
         clean: bool = False,
         package: bool = True,
         standalone: bool = True,
+        pip_install: bool = True,
+        pip_packages: Optional[List[str]] = None,
     ) -> Path:
         """
         Builds the application and optionally generates an .ipk package.
@@ -272,6 +307,8 @@ class App:
             clean=clean,
             package=package,
             standalone=standalone,
+            pip_install=pip_install,
+            pip_packages=pip_packages,
         )
 
     def package(
@@ -279,6 +316,8 @@ class App:
         target: Union[Target, str] = Target.EMULATOR,
         output_file: Optional[Union[str, Path]] = None,
         standalone: bool = True,
+        pip_install: bool = True,
+        pip_packages: Optional[List[str]] = None,
     ) -> Path:
         """
         Directly packages the application into an .ipk file without requiring full CMake compilation
@@ -288,6 +327,8 @@ class App:
             target: Target architecture (Target.EMULATOR, Target.ARM, or Target.ALL).
             output_file: Optional destination .ipk file.
             standalone: If True, bundles a self-contained Python runtime (AppImage-style).
+            pip_install: If True, resolves and bundles PyPI dependencies.
+            pip_packages: Optional list of additional PyPI packages to include.
 
         Returns:
             Path to generated .ipk package.
@@ -306,6 +347,8 @@ class App:
             target=target,
             output_file=Path(output_file) if output_file else None,
             standalone=standalone,
+            pip_install=pip_install,
+            pip_packages=pip_packages,
         )
 
     def deploy(
@@ -339,10 +382,22 @@ class App:
         if not project_dir.is_dir():
             raise NotADirectoryError(f"'{project_dir}' is not a directory.")
 
+        req_file = project_dir / "requirements.txt"
+        extra_pip_deps: List[str] = []
+        if req_file.exists():
+            for line in req_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and line not in extra_pip_deps:
+                    extra_pip_deps.append(line)
+
         manifest_path = project_dir / "asteroid.json"
         if manifest_path.exists():
             data = json.loads(manifest_path.read_text(encoding="utf-8"))
             meta = AppMetadata.from_dict(data)
+            all_pip = list(meta.pip_dependencies)
+            for dep in extra_pip_deps:
+                if dep not in all_pip:
+                    all_pip.append(dep)
             app = cls(
                 name=meta.name,
                 title=meta.title,
@@ -354,6 +409,7 @@ class App:
                 outer_color=meta.outer_color,
                 app_type=meta.app_type,
                 dependencies=meta.dependencies,
+                pip_dependencies=all_pip,
                 project_dir=project_dir,
             )
             return app
@@ -387,5 +443,6 @@ class App:
             center_color=center_color,
             outer_color=outer_color,
             app_type=app_type,
+            pip_dependencies=extra_pip_deps,
             project_dir=project_dir,
         )

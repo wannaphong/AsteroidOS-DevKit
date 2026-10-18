@@ -21,6 +21,8 @@ def main():
     parser.add_argument("-t", "--target", default="emulator", choices=["emulator", "watch", "arm", "all"],
                         help="Target device architecture (default: emulator)")
     parser.add_argument("--no-standalone", action="store_true", help="Do not bundle standalone Python runtime")
+    parser.add_argument("--pip-package", action="append", dest="pip_packages", help="Additional PyPI package to include")
+    parser.add_argument("--no-pip", action="store_true", help="Do not install PyPI dependencies")
     args = parser.parse_args()
 
     app_dir = Path(__file__).resolve().parent
@@ -35,9 +37,15 @@ def main():
     }
     target = target_map.get(args.target, Target.EMULATOR)
     standalone = not args.no_standalone if target != Target.ALL else False
+    pip_install = not args.no_pip
 
-    print(f"Packaging {app.name} (version {app.version}) for target '{args.target}' (standalone={standalone})...")
-    ipk_path = app.package(target=target, standalone=standalone)
+    print(f"Packaging {app.name} (version {app.version}) for target '{args.target}' (standalone={standalone}, pip_install={pip_install})...")
+    ipk_path = app.package(
+        target=target,
+        standalone=standalone,
+        pip_install=pip_install,
+        pip_packages=args.pip_packages,
+    )
 
     print(f"\n[OK] Package built successfully!")
     print(f"Output IPK: {ipk_path}")

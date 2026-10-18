@@ -188,6 +188,52 @@ asteroidos package sample-python-app --target watch
 asteroidos package sample-python-app --no-standalone
 ```
 
+#### Including PyPI Packages with Compiler Support (NumPy, etc.)
+
+The AsteroidOS Python SDK supports including Python packages directly from PyPI into your application, including packages that require native C/C++ compilation (such as **NumPy**, **MarkupSafe**, etc.):
+
+1. **In `asteroid.json`**:
+   ```json
+   {
+     "name": "asteroid-my-app",
+     "app_type": "python",
+     "pip_dependencies": [
+       "numpy",
+       "requests"
+     ]
+   }
+   ```
+
+2. **In `requirements.txt`**:
+   Place a standard `requirements.txt` in the root of your application directory:
+   ```text
+   numpy>=1.26
+   requests
+   ```
+
+3. **In Python Code**:
+   ```python
+   app = App("asteroid-math", app_type=AppType.PYTHON_QML)
+   app.add_pip_package("numpy")
+   ipk_file = app.package(target=Target.EMULATOR)
+   ```
+
+4. **Via CLI**:
+   ```bash
+   # Bundle packages on the fly during package/build
+   asteroidos package my-app --pip-package numpy --target emulator
+
+   # Pre-compile and install packages directly for target device architecture
+   asteroidos pip install numpy --target emulator
+
+   # Inspect declared PyPI dependencies
+   asteroidos pip list my-app
+   ```
+
+- **Cross-Compilation**: Native C/C++ extensions are automatically cross-compiled targeting the target device architecture (`core2-32` for emulator, ARM for watch) using the AsteroidOS SDK toolchain and sysroot headers.
+- **Persistent Wheel Caching**: Pre-compiled wheels are stored in `~/.cache/asteroidos/wheels/<arch>` to accelerate subsequent application packaging.
+- **Isolated Bundling**: All packages are bundled directly into the application's `/usr/share/<app-name>/python/lib/python3.13/site-packages/` without polluting system libraries.
+
 ---
 
 ### Example 3: Control Emulator & Devices

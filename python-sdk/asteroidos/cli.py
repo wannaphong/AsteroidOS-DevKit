@@ -93,12 +93,16 @@ def cmd_build(args: argparse.Namespace) -> int:
     print_info(f"Building '{app.name}' ({app.metadata.app_type.value}) for target '{target.value}'...")
 
     standalone = not getattr(args, "no_standalone", False)
+    pip_packages = getattr(args, "pip_packages", None)
+    pip_install = not getattr(args, "no_pip", False)
     try:
         result_path = app.build(
             target=target,
             clean=args.clean,
             package=not args.no_package,
             standalone=standalone,
+            pip_install=pip_install,
+            pip_packages=pip_packages,
         )
         print_ok(f"Build succeeded! Output: {result_path}")
         return 0
@@ -115,13 +119,71 @@ def cmd_package(args: argparse.Namespace) -> int:
 
     out_file = Path(args.out) if args.out else None
     standalone = not getattr(args, "no_standalone", False)
+    pip_packages = getattr(args, "pip_packages", None)
+    pip_install = not getattr(args, "no_pip", False)
     try:
-        ipk_path = app.package(target=target, output_file=out_file, standalone=standalone)
+        ipk_path = app.package(
+            target=target,
+            output_file=out_file,
+            standalone=standalone,
+            pip_install=pip_install,
+            pip_packages=pip_packages,
+        )
         print_ok(f"Package created: {ipk_path}")
         return 0
     except Exception as exc:
         print_error(f"Packaging failed: {exc}")
         return 1
+
+
+def cmd_pip(args: argparse.Namespace) -> int:
+    """Manage PyPI dependencies for AsteroidOS applications."""
+    action = args.pip_action
+    if action == "install":
+        target = Target(args.target)
+        packages = list(args.packages or [])
+        project_dir = Path(args.project_dir or ".").resolve()
+        dest_dir = Path(args.dest).resolve() if args.dest else project_dir / "build" / f"site-packages-{target.arch}"
+
+        if not packages:
+            req_file = project_dir / "requirements.txt"
+            if req_file.exists():
+                for line in req_file.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        packages.append(line)
+        if not packages:
+            print_error("No packages specified and no requirements.txt found.")
+            return 1
+
+        print_info(f"Cross-compiling and installing PyPI packages for target '{target.value}': {', '.join(packages)}")
+        try:
+            Builder.install_pip_packages(
+                packages=packages,
+                target=target,
+                dest_dir=dest_dir,
+                clean_cache=getattr(args, "clean_cache", False),
+            )
+            print_ok(f"Packages successfully installed into {dest_dir}")
+            return 0
+        except Exception as exc:
+            print_error(f"Failed to install packages: {exc}")
+            return 1
+    elif action == "list":
+        project_dir = Path(args.project_dir or ".").resolve()
+        try:
+            app = App.load(project_dir)
+            print_header(f"PyPI Dependencies for '{app.name}'")
+            if app.pip_dependencies:
+                for p in app.pip_dependencies:
+                    print(f"  - {p}")
+            else:
+                print("  (None configured)")
+            return 0
+        except Exception as exc:
+            print_error(f"Could not load app from {project_dir}: {exc}")
+            return 1
+    return 0
 
 
 def cmd_deploy(args: argparse.Namespace) -> int:
@@ -257,6 +319,13 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
         else:
             print_warn("Emulator SDK not installed. Run 'make setup-sdk'.")
 
+        # 7. Python Cross-compilation & PyPI Support
+        try:
+            env_info = Builder.setup_target_python_cross_env(Target.EMULATOR, root)
+            print_ok(f"Python Cross-Compiler: Ready ({env_info['python_version']}, {env_info['sysconfig_name']})")
+        except Exception as exc:
+            print_warn(f"Python cross-compilation not configured: {exc}")
+
     return 0
 
 
@@ -299,6 +368,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_build.add_argument("--no-package", action="store_true", help="Compile only, skip .ipk creation")
     p_build.add_argument("--standalone", action="store_true", default=True, help="Bundle self-contained Python runtime (AppImage-style)")
     p_build.add_argument("--no-standalone", action="store_true", help="Do not bundle Python runtime")
+    p_build.add_argument("--pip-package", action="append", dest="pip_packages", help="PyPI package to bundle (can be specified multiple times)")
+    p_build.add_argument("--no-pip", action="store_true", help="Skip installing PyPI dependencies")
     p_build.set_defaults(func=cmd_build)
 
     # package
@@ -308,7 +379,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_pkg.add_argument("--out", "-o", help="Output .ipk file path")
     p_pkg.add_argument("--standalone", action="store_true", default=True, help="Bundle self-contained Python runtime (AppImage-style)")
     p_pkg.add_argument("--no-standalone", action="store_true", help="Do not bundle Python runtime")
+    p_pkg.add_argument("--pip-package", action="append", dest="pip_packages", help="PyPI package to bundle (can be specified multiple times)")
+    p_pkg.add_argument("--no-pip", action="store_true", help="Skip installing PyPI dependencies")
     p_pkg.set_defaults(func=cmd_package)
+
+    # pip
+    p_pip = subparsers.add_parser("pip", help="Cross-compile and manage PyPI packages for AsteroidOS")
+    pip_subs = p_pip.add_subparsers(dest="pip_action", required=True)
+
+    p_pip_install = pip_subs.add_parser("install", help="Cross-compile and install packages from PyPI")
+    p_pip_install.add_argument("packages", nargs="*", help="Package names (e.g. numpy, requests)")
+    p_pip_install.add_argument("--target", "-t", default="emulator", choices=["emulator", "arm", "watch"], help="Target device architecture")
+    p_pip_install.add_argument("--dest", "-d", help="Custom destination site-packages directory")
+    p_pip_install.add_argument("--project-dir", help="Project directory")
+    p_pip_install.add_argument("--clean-cache", action="store_true", help="Clear wheel cache before building")
+    p_pip_install.set_defaults(func=cmd_pip)
+
+    p_pip_list = pip_subs.add_parser("list", help="List PyPI dependencies declared in the project")
+    p_pip_list.add_argument("project_dir", nargs="?", default=".", help="Project directory")
+    p_pip_list.set_defaults(func=cmd_pip)
 
     # deploy
     p_deploy = subparsers.add_parser("deploy", help="Deploy .ipk package to emulator or physical watch")
