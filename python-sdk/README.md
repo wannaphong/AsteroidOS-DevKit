@@ -4,7 +4,9 @@ The official Python SDK and command-line interface for developing, building, pac
 
 ---
 
-> 📖 **Architecture & Deep Dive**: For full details on AppImage-style standalone runtime bundling, ELF symlink handling, and target deployment, see **[python_sdk.md](../python_sdk.md)**.
+> 📖 **Documentation**:
+> - **[QML Controls & UI Toolkit Guide (qml-asteroid)](docs/qml_asteroid.md)**: Complete guide to AsteroidOS QML controls (`Application`, `LayerStack`, `IconButton`, `IntSelector`, `ValueMeter`, etc.), `Dims` responsive layouts, system utilities (`DeviceSpecs`, `WallClock`, `BluetoothStatus`), and PySide6 integration.
+> - **[Architecture & Deep Dive (python_sdk.md)](../python_sdk.md)**: Full details on AppImage-style standalone runtime bundling, ELF symlink handling, and target deployment.
 
 ---
 
@@ -206,7 +208,17 @@ if device.is_reachable():
 
     # Capture display screenshot
     device.screenshot("screenshot.png")
-```
+---
+
+## AsteroidOS QML Controls (`qml-asteroid`)
+
+AsteroidOS watch applications built with Python use Qt Quick / QML for their visual interface, powered by the [`qml-asteroid`](https://github.com/AsteroidOS/qml-asteroid) component library:
+
+- **`org.asteroid.controls`**: Watch-optimized UI components including `Application`, `Dims` (responsive scaling), `LayerStack` (page navigation), `IconButton`, `IntSelector`, `OptionCycler`, `LabeledSwitch`, `ListItem`, `ValueMeter`, `RemorseTimer`, and `StatusPage`.
+- **`org.asteroid.utils`**: Direct hardware and platform access including `DeviceSpecs` (screen shape, OLED burn-in, speaker/WLAN detection), `WallClock` (battery-friendly aligned timer), and `BluetoothStatus` (pairing and connectivity).
+- **`org.asteroid.settings`**: System settings including `DisplaySettings`, `DateTimeSettings`, and `LanguageModel`.
+
+👉 For the complete component reference, property tables, and PySide6 two-way binding examples, see **[QML Controls & UI Toolkit Guide](docs/qml_asteroid.md)**.
 
 ---
 

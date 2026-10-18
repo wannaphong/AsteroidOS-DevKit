@@ -300,7 +300,28 @@ Application {
 
 ---
 
-## 7. Troubleshooting & FAQs
+## 7. AsteroidOS QML UI Components (`qml-asteroid`)
+
+AsteroidOS applications pair a Python/PySide6 backend with declarative QML frontends powered by **[`qml-asteroid`](https://github.com/AsteroidOS/qml-asteroid)**.
+
+### Available QML Modules:
+- **`org.asteroid.controls`**: Native wearable UI widgets designed for both round and square smartwatches:
+  - **Layout & Structure**: `Application` (root item with flat mesh gradient & swipe indicators), `LayerStack` (push/pop multi-page navigation with edge swipe-back), `PageHeader`, `StatusPage`.
+  - **Buttons & Toggles**: `IconButton` (vector Ionicons button), `Switch`, `LabeledSwitch`, `LabeledActionButton`.
+  - **Lists & Selection**: `ListItem`, `ListRow`, `IntSelector` (pill scrubber), `OptionCycler`, `Spinner`, `CircularSpinner`.
+  - **Gauges & Feedback**: `RemorseTimer` (cancellable action countdown), `ValueMeter` (wave meter with particles), `SegmentedArc` (circular progress), `Marquee` (scrolling text).
+  - **Responsive Sizing**: `Dims` singleton (`Dims.w()`, `Dims.h()`, `Dims.l()`) dynamically scales coordinates across varied watch resolutions and shapes.
+- **`org.asteroid.utils`**: Direct hardware capabilities:
+  - `DeviceSpecs`: Screen shape (`hasRoundScreen`), Moto 360 chin cutout (`flatTireHeight`), speaker/WLAN hardware availability, and OLED burn-in requirements (`needsBurnInProtection`).
+  - `WallClock`: High-efficiency system clock aligned to second/minute/day boundaries.
+  - `BluetoothStatus`: Bluetooth power and companion connection state.
+- **`org.asteroid.settings`**: System settings including `DisplaySettings`, `DateTimeSettings`, and `LanguageModel`.
+
+📖 **Full Reference & API Guide**: For comprehensive property tables, component details, and complete runnable examples, see **[QML Controls & UI Toolkit Guide (python-sdk/docs/qml_asteroid.md)](python-sdk/docs/qml_asteroid.md)**.
+
+---
+
+## 8. Troubleshooting & FAQs
 
 ### Q: Why does `scp` fail with `write remote: Failure` when uploading?
 - **Cause 1**: OpenSSH 9.0+ uses SFTP by default, which can fail on embedded SSH servers.

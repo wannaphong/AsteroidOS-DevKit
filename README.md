@@ -272,7 +272,9 @@ Connect your watch via USB (default IP: `192.168.2.15`):
 
 The DevKit includes a complete **Python SDK** (`python-sdk/`) allowing developers to create, build, package, test, and deploy AsteroidOS applications directly using Python or the unified `asteroidos` CLI tool.
 
-> 📖 **Comprehensive Guide**: See **[python_sdk.md](python_sdk.md)** for in-depth documentation on standalone runtime packaging (AppImage-style), architecture, and target optimization.
+> 📖 **Guides & Documentation**:
+> - **[QML Controls & UI Toolkit Guide (qml-asteroid)](python-sdk/docs/qml_asteroid.md)**: Complete guide to AsteroidOS wearable controls (`Application`, `LayerStack`, `IconButton`, `IntSelector`, `ValueMeter`, etc.), `Dims` responsive layouts, system utilities (`DeviceSpecs`, `WallClock`, `BluetoothStatus`), and PySide6 integration.
+> - **[Standalone Runtime Packaging (python_sdk.md)](python_sdk.md)**: Deep dive on AppImage-style standalone bundling, ELF symlink handling, and target deployment.
 
 ### Installation
 
