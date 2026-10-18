@@ -149,19 +149,22 @@ class Device:
             raise FileNotFoundError(f"IPK package not found: {ipk}")
 
         # Pre-clean any stale files and vacuum logs to avoid ENOSPC
-        self.run(f"rm -f \"{ipk.name}\" \"/tmp/{ipk.name}\"")
+        self.run(f"rm -f \"{ipk.name}\" \"/dev/shm/{ipk.name}\" \"/tmp/{ipk.name}\"")
         self.run("journalctl --vacuum-time=1s", sudo=True)
         self.run("rm -rf /var/lib/opkg/lists/*", sudo=True)
 
-        # Try uploading to home directory first (avoids sticky bit restrictions on /tmp)
-        remote_dest = ipk.name
+        # Try uploading to /dev/shm first (RAM tmpfs avoids consuming rootfs space), then home, then /tmp
+        remote_dest = f"/dev/shm/{ipk.name}"
         if not self.upload(ipk, remote_dest):
-            remote_dest = f"/tmp/{ipk.name}"
+            remote_dest = ipk.name
             if not self.upload(ipk, remote_dest):
-                raise DeviceError(f"Failed to upload package {ipk.name} to {self.host}:{remote_dest}")
+                remote_dest = f"/tmp/{ipk.name}"
+                if not self.upload(ipk, remote_dest):
+                    raise DeviceError(f"Failed to upload package {ipk.name} to {self.host}:{remote_dest}")
 
         force_flags = "--force-reinstall --force-overwrite --force-depends" if force else ""
-        cmd = f"opkg install {force_flags} {remote_dest} && rm -f {remote_dest} /tmp/{ipk.name}"
+        install_target = remote_dest if remote_dest.startswith("/") else f"./{remote_dest}"
+        cmd = f"opkg install {force_flags} {install_target} && rm -f {install_target} /dev/shm/{ipk.name} /tmp/{ipk.name} {ipk.name}"
         res = self.run(cmd, sudo=True)
         if not res.ok:
             raise DeviceError(f"Package installation failed: {res.stderr}\n{res.stdout}")

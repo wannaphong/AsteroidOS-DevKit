@@ -143,14 +143,19 @@ echo "Target Host : ${SSH_USER}@${HOST}:${PORT}"
 echo ""
 
 # Pre-clean any stale files on target and vacuum journals to prevent ENOSPC
-ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "rm -f \"${IPK_BASENAME}\" \"/tmp/${IPK_BASENAME}\"; sudo journalctl --vacuum-time=1s 2>/dev/null || true; sudo rm -rf /var/lib/opkg/lists/* /usr/share/${IPK_BASENAME%%-*}* 2>/dev/null || true" 2>/dev/null || true
+PKG_NAME="${IPK_BASENAME%-[0-9]*}"
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "rm -f \"${IPK_BASENAME}\" \"/dev/shm/${IPK_BASENAME}\" \"/tmp/${IPK_BASENAME}\"; sudo journalctl --vacuum-time=1s 2>/dev/null || true; sudo rm -rf /var/lib/opkg/lists/* /usr/share/${PKG_NAME} 2>/dev/null || true" 2>/dev/null || true
 
 log_info "Uploading package to target device..."
-REMOTE_PATH="${IPK_BASENAME}"
-if ! scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}"; then
-    log_warn "Upload to home failed, trying /tmp..."
-    REMOTE_PATH="/tmp/${IPK_BASENAME}"
-    scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}"
+REMOTE_PATH="/dev/shm/${IPK_BASENAME}"
+if ! scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}" 2>/dev/null; then
+    log_info "Upload to /dev/shm failed, trying home..."
+    REMOTE_PATH="${IPK_BASENAME}"
+    if ! scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}" 2>/dev/null; then
+        log_warn "Upload to home failed, trying /tmp..."
+        REMOTE_PATH="/tmp/${IPK_BASENAME}"
+        scp "${SCP_OPTS[@]}" "${IPK_FILE}" "${SSH_USER}@${HOST}:${REMOTE_PATH}"
+    fi
 fi
 
 log_info "Installing package with opkg..."
@@ -159,7 +164,12 @@ if [ "${SSH_USER}" != "root" ]; then
     OPKG_PREFIX="sudo "
 fi
 
-ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "${OPKG_PREFIX}opkg install --force-reinstall /tmp/${IPK_BASENAME} && rm -f /tmp/${IPK_BASENAME}"
+INSTALL_TARGET="${REMOTE_PATH}"
+if [[ "${INSTALL_TARGET}" != /* ]]; then
+    INSTALL_TARGET="./${INSTALL_TARGET}"
+fi
+
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${HOST}" "${OPKG_PREFIX}opkg install --force-reinstall --force-overwrite --force-depends ${INSTALL_TARGET} && rm -f \"${INSTALL_TARGET}\" \"/dev/shm/${IPK_BASENAME}\" \"/tmp/${IPK_BASENAME}\" \"${IPK_BASENAME}\""
 
 echo ""
 log_ok "Package ${IPK_BASENAME} installed successfully!"

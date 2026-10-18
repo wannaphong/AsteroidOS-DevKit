@@ -92,6 +92,19 @@ else
     log_warn "Could not fetch MD5SUMS for verification. Skipping checksum validation."
 fi
 
+# Expand rootfs to 2GB to prevent ENOSPC disk exhaustion when deploying applications
+ROOTFS_PATH="${EMULATOR_DIR}/${ROOTFS_FILE}"
+if [ -f "${ROOTFS_PATH}" ] && command -v truncate >/dev/null 2>&1 && command -v resize2fs >/dev/null 2>&1; then
+    CURRENT_SIZE="$(stat -c%s "${ROOTFS_PATH}" 2>/dev/null || echo 0)"
+    if [ "${CURRENT_SIZE}" -gt 0 ] && [ "${CURRENT_SIZE}" -lt 2147483648 ]; then
+        log_info "Auto-expanding rootfs to 2GB for comfortable app development..."
+        e2fsck -fy "${ROOTFS_PATH}" >/dev/null 2>&1 || true
+        truncate -s 2G "${ROOTFS_PATH}"
+        resize2fs "${ROOTFS_PATH}" >/dev/null 2>&1 || true
+        log_ok "Rootfs expanded to 2GB successfully!"
+    fi
+fi
+
 # Check QEMU
 echo ""
 if command -v qemu-system-x86_64 >/dev/null 2>&1; then
